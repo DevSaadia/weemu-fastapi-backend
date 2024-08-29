@@ -2,6 +2,9 @@ from typing import Union
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
+import json
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 app = FastAPI()
 
@@ -16,34 +19,39 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-df = pd.read_csv('archive/movies_metadata.csv', low_memory=False)
-df = df[['title','overview']]
-
-# df = pd.read_csv('archive/movies_metadata.csv')
+def extract_genre_names(genres):
+    genres_list = json.loads(genres.replace("'", '"'))
+    return " ".join([genre['name'] for genre in genres_list])
+                                          
+movies = pd.read_csv('archive/movies_metadata.csv', low_memory=False)
+movies = movies[['id','title','overview','genres']]
+movies['tags'] = movies['overview']+" "+movies['genres'].apply(extract_genre_names)
 
 @app.get("/")
 def read_root():
     return {"Hello": "World"}
 
-
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: Union[str, None] = None):
-    return {"item_id": item_id, "q": q}
-
-@app.get("/data/{query}")
-def query_data(query: str):
-    # Perform some operation using the dataset and the query
-    return df.head()
-    # result = df[df['column_name'].str.contains(query, na=False)]
-    # # Convert the result to a dictionary
-    # result_dict = result.to_dict(orient='records')
-    # return {"result": result_dict}
-
 @app.get("/check/{title}")
 def check(title:str):
-    overview = df.loc[df['title'] == title, 'overview'].values
+    overview = movies.loc[movies['title'] == title, 'overview'].values
+    genre = movies.loc[movies['title'] == title, 'genres'].values
+    tag = movies.loc[movies['title'] == title, 'tags'].values
+    print(movies.head())
+    new_df = movies[['id','title','tags']]
+    print(new_df.head())
+    
+    new_df.loc[:, 'tags'] = new_df['tags'].fillna('')
+    
+    cv=CountVectorizer(max_features=10000, stop_words='english')
+    print("cv done")
+    # vec = cv.fit_transform(new_df['tags']).values.astype('U').toarray()
+    vec = cv.fit_transform(new_df['tags']).toarray().astype('U')
+    sim = cosine_similarity(vec)
+    print("sim done")
+    print(new_df[new_df['title'] == 'The Shawshank Redemption'])
+    
+    
     if len(overview) > 0:
-        return overview[0]
+        return overview[0], genre[0], tag[0]
     else:
         return "Title not found."
