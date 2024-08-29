@@ -6,9 +6,12 @@ import json
 # from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.feature_extraction.text import TfidfVectorizer
 
-from sklearn.metrics.pairwise import cosine_similarity
+# from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.metrics.pairwise import linear_kernel
+
 
 app = FastAPI()
+
 
 origins=[
     "http://localhost:3000",
@@ -37,7 +40,8 @@ vectorizer = TfidfVectorizer(stop_words='english')
 X = vectorizer.fit_transform(new_df['tags'].fillna(''))
 print("cv done")
 
-similarity_matrix = cosine_similarity(X)
+similarity_matrix = linear_kernel(X, X)
+#similarity_matrix = cosine_similarity(X)
 print("sim done")
 
 @app.get("/")
@@ -49,7 +53,11 @@ def read_root():
 @app.get("/recommend/{title}")
 def recommend(title:str):
     idx = new_df[new_df['title'] == title].index[0]
-    dist=sorted(list(enumerate(similarity_matrix[idx])),reverse=True,key=lambda vec:vec[1])
+
+    # if idx.empty:
+    #     return {"recommended_movies": None}
+
+    dist=sorted(list(enumerate(similarity_matrix[idx])),reverse=True,key=lambda x:x[1])
     recommended_movies = []
     for i in dist[1:6]:
         recommended_movies.append(new_df.iloc[i[0]]['title'])
