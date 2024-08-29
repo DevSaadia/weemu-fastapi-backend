@@ -3,7 +3,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 import json
-from sklearn.feature_extraction.text import CountVectorizer
+# from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer
+
 from sklearn.metrics.pairwise import cosine_similarity
 
 app = FastAPI()
@@ -27,9 +29,33 @@ movies = pd.read_csv('archive/movies_metadata.csv', low_memory=False)
 movies = movies[['id','title','overview','genres']]
 movies['tags'] = movies['overview']+" "+movies['genres'].apply(extract_genre_names)
 
+new_df = movies[['id','title','tags']]
+print(new_df.head())
+    
+new_df.loc[:, 'tags'] = new_df['tags'].fillna('')
+vectorizer = TfidfVectorizer(stop_words='english')
+X = vectorizer.fit_transform(new_df['tags'].fillna(''))
+print("cv done")
+
+similarity_matrix = cosine_similarity(X)
+print("sim done")
+
 @app.get("/")
 def read_root():
     return {"Hello": "World"}
+
+
+
+@app.get("/recommend/{title}")
+def recommend(title:str):
+    idx = new_df[new_df['title'] == title].index[0]
+    dist=sorted(list(enumerate(similarity_matrix[idx])),reverse=True,key=lambda vec:vec[1])
+    recommended_movies = []
+    for i in dist[1:6]:
+        recommended_movies.append(new_df.iloc[i[0]]['title'])
+    return {"recommended_movies": recommended_movies}
+
+
 
 @app.get("/check/{title}")
 def check(title:str):
@@ -37,21 +63,42 @@ def check(title:str):
     genre = movies.loc[movies['title'] == title, 'genres'].values
     tag = movies.loc[movies['title'] == title, 'tags'].values
     print(movies.head())
-    new_df = movies[['id','title','tags']]
-    print(new_df.head())
+
+
     
-    new_df.loc[:, 'tags'] = new_df['tags'].fillna('')
-    
-    cv=CountVectorizer(max_features=10000, stop_words='english')
-    print("cv done")
-    # vec = cv.fit_transform(new_df['tags']).values.astype('U').toarray()
-    vec = cv.fit_transform(new_df['tags']).toarray().astype('U')
-    sim = cosine_similarity(vec)
-    print("sim done")
+
+
     print(new_df[new_df['title'] == 'The Shawshank Redemption'])
-    
+
+    #idx = movie_index[movie_title]
+    index = new_df[new_df['title'] == movies].index[0]
+    print(index)
+    dist=sorted(list(enumerate(similarity_matrix[index])),reverse=True,key=lambda x:x[1])
+    print(dist)
+    for i in dist[1:6]:
+        print(new_df.iloc[i[0]])
+
     
     if len(overview) > 0:
         return overview[0], genre[0], tag[0]
     else:
         return "Title not found."
+
+
+    # similarity_scores = list(enumerate(similarity_matrix[index]))
+    # similarity_scores = sorted(similarity_scores, key=lambda x: x[1], reverse=True)
+    # movie_indices = [i[0] for i in similarity_scores[1:6]]  # Top 5 recommendations
+
+    # recommended_movies =new_df.iloc[movie_indices]['title'].tolist()
+    # return {"recommended_movies": recommended_movies}
+    #dist=sorted(list(enumerate(sim[0])),reverse=True,key=lambda vec:vec[1])
+    # print(dist[1:6])
+    # for i in dist[1:6]:
+    #     print(i)
+    #     print(new_df.iloc[i[0]].title)
+    
+    # def recommend(title:str):
+    #     idx = new_df[new_df['title'] == movies].index[0]
+    #     dist=sorted(list(enumerate(sim[idx])),reverse=True,key=lambda vec:vec[1])
+    #     for i in dist[1:6]:
+    #         print(new_df.iloc[i[0]])
