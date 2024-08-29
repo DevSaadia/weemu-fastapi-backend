@@ -3,5 +3,4 @@ uvicorn
 pandas
 typing
 fastapi-cors
-json
 scikit-learn
