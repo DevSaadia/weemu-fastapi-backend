@@ -1,12 +1,24 @@
 from typing import Union
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 
 app = FastAPI()
+
+origins=[
+    "http://localhost:3000",
+    "https://weemu-fastapi-backend-00695719a2e1.herokuapp.com"
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 df = pd.read_csv('archive/movies_metadata.csv', low_memory=False)
 df = df[['title','overview']]
-
-
 
 # df = pd.read_csv('archive/movies_metadata.csv')
 
